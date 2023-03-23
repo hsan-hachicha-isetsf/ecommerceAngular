@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Article=require("../models/article")
-
+const {verifyToken} =require("../middleware/verif-token")
+const { uploadFile } = require('../middleware/upload-file')
 // afficher la liste des articles.
-router.get('/', async (req, res, )=> {
+router.get('/', verifyToken, async (req, res, )=> {
     try {
         const articles = await Article.find();
                 
@@ -14,9 +15,10 @@ router.get('/', async (req, res, )=> {
 
 });
 // créer un nouvel article
-router.post('/', async (req, res) =>  {
-    
-    const nouvarticle = new Article(req.body)
+router.post('/', verifyToken,uploadFile.single("imageart"),async (req, res) =>  {
+    const {reference,designation,prix,marque,qtestock,scategorieID} = req.body
+    const imageart = req.file.filename
+    const nouvarticle = new Article({reference:reference,designation:designation,prix:prix,marque:marque,qtestock:qtestock,scategorieID:scategorieID,imageart:imageart})
 
     try {
         await nouvarticle.save();

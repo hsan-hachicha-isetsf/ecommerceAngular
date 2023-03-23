@@ -3,7 +3,7 @@ const router = express.Router();
 const User=require("../models/user")
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
-
+const {verifyRole} = require("../middleware/verify-role")
 // créer un nouvel utilisateur
 router.post('/register', async (req, res) =>  {
  try {
@@ -28,7 +28,7 @@ router.post('/register', async (req, res) =>  {
 });
 
 // afficher la liste des utilisateurs.
-router.get('/', async (req, res, )=> {
+router.get('/', async (req, res)=> {
     try {
         const users = await User.find().select("-password");
                 
@@ -40,40 +40,69 @@ router.get('/', async (req, res, )=> {
 });
 
 
+
 // se connecter
 router.post('/login', async (req, res) =>  {
     try {
-
         let { email, password } = req.body
-        if (!email || !password) return res.status(404).send({ success: false, message: "all fields are required" })
 
-        let user = await User.findOne({ email })
+        if (!email || !password) {
+            return res.status(404).send({ success: false, message: "All fields are required" })
+        }
 
-        if (!user) return res.status(404).send({ success: false, message: "Account doesn't exists" })
-
-        let isCorrectPassword = await bcrypt.compare(password, user.password)
+        let user = await User.findOne({ email }).select('+password').select('+isActive')
         
 
-        delete user._doc.password
+        if (!user) {
 
-        if (isCorrectPassword) {
-
-            let token = jwt.sign({ id: user._id, role: user.role }, process.env.SECRET, { expiresIn: "1h" })
-
-            return res.status(200).send({ success: true, user, token })
+            return res.status(404).send({ success: false, message: "Account doesn't exists" })
 
         } else {
 
-            return res.status(404).send({ success: false, message: "Please verify your credentials" })
+            let isCorrectPassword = await bcrypt.compare(password, user.password)
+            if (isCorrectPassword) {
+
+                delete user._doc.password
+                if (!user.isActive) return res.status(200).send({ success: false, message: 'Your account is inactive, Please contact your administrator' })
+
+                const token = jwt.sign({ iduser: user._id, role: user.role }, process.env.SECRET, { expiresIn: "1h", })
+
+                return res.status(200).send({ success: true, user, token })
+
+            } else {
+
+                return res.status(404).send({ success: false, message: "Please verify your credentials" })
+
+            }
+
         }
 
     } catch (err) {
-
-
-        res.status(404).send({ success: false, message: err })
-
+        return res.status(404).send({ success: false, message: err.message })
     }
 
    });
+
+
+
+   /**
+ * as an admin i can disable or enable an account 
+ */
+   router.put('/status/edit',  async (req, res) =>  {
+    try {
+
+        let { idUser } = req.body
+        let user = await User.findById(idUser).select('+isActive')
+        user.isActive = !user.isActive
+        user.save()
+
+        res.status(200).send({ success: true, user })
+
+    } catch (err) {
+
+        return res.status(404).send({ success: false, message: err })
+
+    }
+   })
 
 module.exports = router;

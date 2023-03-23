@@ -9,7 +9,7 @@ const userRouter =require("./routes/user.route")
 const cors=require("cors")
 dotenv.config()
 const app = express();
-
+app.use(express.static(__dirname + '/'));
 mongoose.set('strictQuery', true)
 const connect = async () => {
     try {
